@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Controle de Contas</title>
+<link rel="icon" href="img/favicon.ico" type="image/x-icon">
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="p-6">
+<div class="absolute inset-0 bg-[url(img/dinheiro.webp)] object-cover opacity-55 "></div>
+<div class="relative max-w-5xl mx-auto bg-white p-6 rounded shadow space-y-6 border border-gray-500">
+  <h2 class="text-3xl font-semibold text-center">💰 Finanças 💰</h2>
+  <div id="humor" class="text-center space-y-2">
+    <img id="humorImg" src="img/aguarde.gif" class="mx-auto h-40" alt="Status financeiro" />
+    <div id="humorText" class="text-2xl font-semibold">Selecione o mês</div>
+  </div>
+
+  <div class="flex justify-between items-center">
+    <input id="mes" type="month" class="border border-gray-600 px-3 py-1" onchange="changeMonth()" />
+    <button onclick="limparMes()" class="px-4 py-2 bg-red-500 text-white rounded">Limpar mês</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <input id="salarioA" type="number" placeholder="Salário Ing" class="border border-pink-600 rounded px-3 py-2" oninput="saveData()" />
+    <input id="salarioB" type="number" placeholder="Salário Léo" class="border border-blue-600 rounded px-3 py-2" oninput="saveData()" />
+    <input id="totalContas" disabled class="border rounded px-3 py-2 bg-gray-100" placeholder="Total das contas" />
+  </div>
+
+  <div id="conteudoMes" class="hidden space-y-4">
+    <button onclick="replicarMes()" class="px-4 py-2 bg-green-500 text-white rounded">
+      Replicar para outro mês
+    </button>
+    <button onclick="addRow()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">➡️ Nova conta</button>
+    <table class="w-full border border-gray-300">
+      <thead class="bg-rose-300 text-rose-900">
+        <tr>
+          <th class="border border-rose-800 p-2">Conta à pagar</th>
+          <th class="border border-rose-800 p-2">Vencimento</th>
+          <th class="border border-rose-800 p-2">Valor</th>
+          <th class="border border-rose-800 p-2">Status</th>
+          <th class="border border-rose-800 p-2">🟢/🔴</th>
+          <th class="border border-rose-800 p-2">Ação</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const tbody = document.getElementById("tbody");
+const mesInput = document.getElementById("mes");
+const salarioA = document.getElementById("salarioA");
+const salarioB = document.getElementById("salarioB");
+const totalContasInput = document.getElementById("totalContas");
+const humorImg = document.getElementById("humorImg");
+const humorText = document.getElementById("humorText");
+const conteudoMes = document.getElementById("conteudoMes");
+
+function getKey() {
+  return `controle-contas-${mesInput.value}`;
+}
+
+function getStatusIcon(status) {
+  return status === "pago" ? "🟢" : "🔴";
+}
+
+function addRow(data = {}) {
+  const tr = document.createElement("tr");
+  tr.className = "text-center";
+
+  tr.innerHTML = `
+    <td class="border border-gray-500 p-2">
+      <input class="w-full border border-indigo-400 rounded px-2 py-1" value="${data.conta || ""}" oninput="saveData()">
+    </td>
+    <td class="border border-gray-500 p-2">
+      <input type="date" class="border border-indigo-400 rounded px-2 py-1" value="${data.vencimento || ""}" oninput="saveData()">
+    </td>
+    <td class="border border-gray-500 p-2">
+      <input type="number" step="0.01" class="border border-indigo-400 rounded px-2 py-1 text-right" value="${data.valor ?? ""}" oninput="saveData()">
+      <span>R$</span>
+    </td>
+    <td class="border border-gray-500 p-2">
+      <select class="border border-indigo-400 rounded px-2 py-1" onchange="updateStatusIcon(this)">
+        <option value="nao_pago">Não pago</option>
+        <option value="pago">Pago</option>
+      </select>
+    </td>
+    <td class="border border-indigo-400 p-2 text-xl status-icon">${getStatusIcon(data.status || "nao_pago")}</td>
+    <td class="border border-gray-500 p-2">
+      <button onclick="removeRow(this)" class="bg-red-500 text-white px-3 py-1 rounded">🗑️</button>
+    </td>
+  `;
+
+  tbody.appendChild(tr);
+
+  const select = tr.querySelector("select");
+  select.value = data.status || "nao_pago";
+  updateStatusIcon(select);
+}
+
+function removeRow(btn) {
+  btn.closest("tr").remove();
+  saveData();
+}
+
+function calculateTotal() {
+  let total = 0;
+  document.querySelectorAll("#tbody tr").forEach(tr => {
+    total += Number(tr.children[2].querySelector("input").value || 0);
+  });
+  totalContasInput.value = total.toFixed(2);
+  return total;
+}
+
+function updateHumor() {
+  if (!mesInput.value) return;
+
+  if (!temSalario()) {
+    humorImg.classList.add("hidden");
+    humorImg.src = "";
+    humorText.textContent = "Informe o salário para calcular";
+    totalContasInput.value = calculateTotal().toFixed(2);
+    return;
+  }
+
+  const total = calculateTotal();
+  const salarios = Number(salarioA.value || 0) + Number(salarioB.value || 0);
+  const diff = salarios - total;
+
+  humorImg.classList.remove("hidden");
+
+  if (diff < 0) {
+    humorImg.src = "img/negativo.png";
+    humorText.textContent = `‼️‼️ Tá faltando ${Math.abs(diff)} reais ‼️‼️`;
+  } else if (diff > 0) {
+    humorImg.src = "img/positivo.png";
+    humorText.textContent = `🎉✨ Tá sobrando ${Math.abs(diff)} reais! 🎉✨`;
+  } else {
+    humorImg.src = "img/zero.webp";
+    humorText.textContent = "💸 É... deu pra pagar tudo 💸";
+  }
+}
+
+function saveData() {
+  if (!mesInput.value) return;
+
+  const rows = [];
+  document.querySelectorAll("#tbody tr").forEach(tr => {
+    rows.push({
+      conta: tr.children[0].querySelector("input").value,
+      vencimento: tr.children[1].querySelector("input").value,
+      valor: tr.children[2].querySelector("input").value,
+      status: tr.children[3].querySelector("select").value
+    });
+  });
+
+  localStorage.setItem(getKey(), JSON.stringify({
+    salarioA: salarioA.value,
+    salarioB: salarioB.value,
+    rows
+  }));
+
+  updateHumor();
+}
+
+function changeMonth() {
+  tbody.innerHTML = "";
+  salarioA.value = "";
+  salarioB.value = "";
+  totalContasInput.value = "";
+  humorImg.classList.add("hidden");
+  humorImg.src = "";
+  humorText.textContent = "Novo mês, novas contas!";
+
+  if (!mesInput.value) {
+    conteudoMes.classList.add("hidden");
+    return;
+  }
+
+  conteudoMes.classList.remove("hidden");
+
+  const data = JSON.parse(localStorage.getItem(getKey()));
+  if (!data) return;
+
+  salarioA.value = data.salarioA || "";
+  salarioB.value = data.salarioB || "";
+  data.rows.forEach(r => addRow(r));
+  calculateTotal();
+  updateHumor();
+}
+
+function temSalario() {
+  return Number(salarioA.value || 0) > 0 || Number(salarioB.value || 0) > 0;
+}
+
+function updateStatusIcon(select) {
+  const iconCell = select.closest("tr").querySelector(".status-icon");
+  iconCell.textContent = getStatusIcon(select.value);
+  saveData();
+}
+
+function limparMes() {
+  if (!mesInput.value) return;
+  localStorage.removeItem(getKey());
+  changeMonth();
+}
+
+function replicarMes() {
+  if (!mesInput.value) {
+    alert("Selecione primeiro o mês atual!");
+    return;
+  }
+
+  const novoMes = prompt("Digite o mês para replicar (ex: 2026-01):");
+  if (!novoMes) return;
+
+  const dadosAtuais = localStorage.getItem(getKey());
+  if (!dadosAtuais) {
+    alert("Não há dados para replicar neste mês!");
+    return;
+  }
+
+  localStorage.setItem(`controle-contas-${novoMes}`, dadosAtuais);
+
+  alert(`Contas replicadas para ${novoMes}!`);
+}
+
+</script>
+</body>
+</html>
